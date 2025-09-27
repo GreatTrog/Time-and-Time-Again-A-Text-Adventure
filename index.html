@@ -1,0 +1,1461 @@
+
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time and Time Again</title>
+    <meta name="description" content="An interactive text adventure. Find the portal, survive new dimensions, and get home.">
+    
+    <!-- STYLE -->
+    <style>
+        /* CSS Reset & Base Styles */
+        :root {
+            --bg-grad-start: #1b1035;
+            --bg-grad-mid: #3b0f4a;
+            --bg-grad-end: #8a2be2;
+            --accent-pink: #ff2ea6;
+            --accent-pink-light: #ff6bd6;
+            --text-primary: #ffd94a;
+            --text-secondary: #f4f1ff;
+            --text-disabled: #a09cb7;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --glow-color: rgba(255, 46, 166, 0.6);
+            --font-size-multiplier: 1;
+            --font-base: 1rem;
+            --font-body: calc(var(--font-base) * var(--font-size-multiplier));
+            --font-heading: calc(1.5rem * var(--font-size-multiplier));
+            --font-mono: 'Menlo', 'Consolas', 'Monaco', monospace;
+
+            color-scheme: dark;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            font-size: 100%;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            background: var(--bg-grad-start);
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-image: radial-gradient(circle at 50% 100%, var(--bg-grad-end) 0%, var(--bg-grad-mid) 35%, var(--bg-grad-start) 70%);
+        }
+        
+        /* High Contrast Mode */
+        html.high-contrast {
+            --bg-grad-start: #000000;
+            --bg-grad-mid: #000000;
+            --bg-grad-end: #000000;
+            --accent-pink: #ffff00;
+            --text-primary: #ffffff;
+            --text-secondary: #eeeeee;
+            --text-disabled: #999999;
+            --glass-bg: rgba(0,0,0,0.5);
+            --glass-border: #ffffff;
+            --glow-color: rgba(255, 255, 0, 0.8);
+        }
+
+        html.high-contrast body {
+            background-image: none;
+            background-color: #000;
+        }
+
+        /* Layout */
+        .app-header {
+            text-align: center;
+            padding: 1.5rem 1rem;
+            position: relative;
+        }
+
+        .game-container {
+            flex: 1;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 1rem;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .game-layout {
+            display: flex;
+            justify-content: center;
+            align-items: start;
+            gap: 2rem;
+            width: 100%;
+            max-width: 1400px;
+        }
+
+        .sidebar {
+            flex: 1 1 250px;
+            max-width: 300px;
+        }
+
+        .hud {
+            padding: 0.75rem 1rem;
+            background: rgba(0,0,0,0.2);
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        /* Header Portal Animation */
+        .title {
+            color: var(--text-primary);
+            font-size: var(--font-heading);
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            position: relative;
+            display: inline-block;
+        }
+
+        .title::before, .title::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .title::before {
+            width: 150%;
+            height: 120%;
+            border: 2px solid var(--accent-pink-light);
+            filter: blur(4px);
+            opacity: 0.7;
+            animation: pulse 6s infinite ease-in-out;
+        }
+
+        .title::after {
+            width: 170%;
+            height: 140%;
+            border: 1px solid var(--accent-pink);
+            filter: blur(8px);
+            opacity: 0.5;
+            animation: pulse 8s infinite ease-in-out reverse;
+        }
+        
+        html:not(.reduced-motion) .scene-content {
+             animation: fadeIn 0.8s ease-out;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
+            50% { transform: translate(-50%, -50%) scale(1.05); opacity: 0.4; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        html.reduced-motion .title::before, html.reduced-motion .title::after {
+            animation: none;
+            opacity: 0.4;
+        }
+
+        /* Start Screen */
+        #start-screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .start-content {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 3rem;
+            max-width: 60ch;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 0 30px 0 var(--glow-color);
+            animation: fadeIn 1s ease-out;
+        }
+        
+        .start-content .title {
+            margin-bottom: 2rem;
+        }
+
+        .start-content p {
+            font-size: var(--font-body);
+            line-height: 1.7;
+            margin-bottom: 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .start-content p:last-of-type {
+            margin-bottom: 2.5rem;
+        }
+
+        #begin-btn {
+            padding: 0.8em 2em;
+            font-size: calc(var(--font-body) * 1.1);
+        }
+
+        .game-hidden {
+            display: none !important;
+        }
+
+        /* Scene & Choices */
+        .scene-content {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 65ch;
+            width: 100%;
+            box-shadow: 0 0 20px 0 var(--glow-color);
+            transition: opacity 0.5s, transform 0.5s;
+            flex: 2 1 65ch;
+        }
+
+        .scene-text p {
+            font-size: var(--font-body);
+            line-height: 1.7;
+            margin-bottom: 1.5rem;
+        }
+        
+        .scene-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        .choices {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .choice-btn {
+            font-family: inherit;
+            font-size: var(--font-body);
+            font-weight: 600;
+            color: var(--text-primary);
+            background: rgba(255, 217, 74, 0.1);
+            border: 2px solid var(--text-primary);
+            padding: 0.75em 1.5em;
+            border-radius: 999px;
+            cursor: pointer;
+            text-align: center;
+            transition: background-color 0.2s, box-shadow 0.2s, transform 0.2s;
+            width: 100%;
+        }
+
+        .choice-btn:hover:not(:disabled), .choice-btn:focus-visible {
+            background: rgba(255, 217, 74, 0.2);
+            box-shadow: 0 0 10px 0 var(--text-primary);
+            transform: translateY(-2px);
+            outline: none;
+        }
+
+        .choice-btn:disabled {
+            color: var(--text-disabled);
+            border-color: var(--text-disabled);
+            background: transparent;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* HUD elements & Inventory Sidebar */
+        .hud-group {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        
+        .hud-inventory {
+            display: flex;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            width: 100%;
+        }
+        
+        #inventory-sidebar .hud-inventory {
+            flex-direction: column;
+            padding: 1.5rem;
+            border-radius: 16px;
+            align-items: stretch;
+        }
+
+        #inventory-sidebar .backpack-label {
+             justify-content: center;
+             margin-bottom: 1rem;
+             font-size: calc(var(--font-body) * 1.1);
+        }
+
+        #inventory-sidebar #hud-inventory-items {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        #inventory-sidebar .inventory-item {
+            text-align: center;
+            padding: 0.5rem 1rem;
+            font-size: var(--font-body);
+        }
+
+        .backpack-label {
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+        }
+
+        .hud-inventory-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .stat, .inventory-item, .menu-btn {
+            font-size: calc(var(--font-body) * 0.9);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .inventory-item {
+            background-color: rgba(0,0,0,0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid var(--glass-border);
+            white-space: nowrap;
+        }
+
+        .menu-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 4px;
+        }
+        
+        .menu-btn:hover, .menu-btn:focus-visible {
+            background-color: var(--glass-bg);
+            outline: none;
+        }
+        
+        .stat-value {
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        /* Modals (dialog element) */
+        .modal {
+            background: var(--bg-grad-start);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 0 30px 10px rgba(0,0,0,0.5);
+        }
+
+        .modal::backdrop {
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal h2 {
+            color: var(--text-primary);
+            font-size: calc(1.2rem * var(--font-size-multiplier));
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        .modal p, .modal label {
+            font-size: var(--font-body);
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+        
+        .modal-actions {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .modal .setting {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .modal .setting label {
+            margin-bottom: 0;
+        }
+
+        .modal button {
+             font-family: inherit;
+            font-size: var(--font-body);
+            font-weight: 600;
+            color: var(--text-primary);
+            background: rgba(255, 217, 74, 0.1);
+            border: 2px solid var(--text-primary);
+            padding: 0.5em 1.2em;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+        
+        /* Toggle Switch styling */
+        .toggle {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #443c68;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: var(--accent-pink);
+        }
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Toast notifications */
+        .toast-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .toast {
+            background-color: var(--accent-pink);
+            color: var(--bg-grad-start);
+            padding: 0.5rem 1rem;
+            border-radius: 999px;
+            font-size: calc(var(--font-body) * 0.9);
+            font-weight: 600;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            animation: slideInFromRight 1s ease-out forwards, fadeOut 1s 4.5s ease-in forwards;
+            width: 100%;
+            text-align: center;
+        }
+        
+        @keyframes slideInFromRight {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .game-layout {
+                flex-direction: column;
+                align-items: center;
+            }
+            .sidebar {
+                width: 100%;
+                max-width: 65ch;
+                flex-basis: auto;
+            }
+            .game-layout > .scene-content {
+                order: 2;
+            }
+            #inventory-sidebar {
+                order: 1;
+            }
+            #toast-sidebar {
+                order: 3;
+            }
+            #inventory-sidebar .hud-inventory {
+                 flex-direction: row;
+                 align-items: center;
+                 padding: 0.5rem 1rem;
+                 border-radius: 8px;
+                 flex-wrap: wrap;
+                 justify-content: center;
+            }
+            #inventory-sidebar .backpack-label {
+                 margin-bottom: 0;
+                 font-size: inherit;
+            }
+             #inventory-sidebar #hud-inventory-items {
+                flex-direction: row;
+             }
+        }
+        
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <div class="start-content">
+            <!-- The 'title' class reuses the animated portal effect from the main header -->
+            <h1 class="title">TIME AND TIME AGAIN</h1>
+            
+            <!-- This is where the cover image would go -->
+            <!-- <img src="/path/to/your/cover-image.jpg" alt="A swirling, colorful portal." style="width: 100%; max-width: 300px; border-radius: 8px; margin-bottom: 1.5rem;"/> -->
+            
+            <p>A choice-driven text adventure where your decisions shape the story.</p>
+            <p>Help Millie survive dinosaurs, outsmart robots, and navigate strange new dimensions to find her way home.</p>
+            <button id="begin-btn" class="choice-btn">Begin Adventure</button>
+        </div>
+    </div>
+
+    <header class="app-header game-hidden">
+        <h1 class="title">TIME AND TIME AGAIN</h1>
+    </header>
+
+    <main id="game-container" class="game-container game-hidden">
+        <div class="game-layout">
+            <aside id="inventory-sidebar" class="sidebar">
+                <div id="hud-inventory" class="hud-group hud-inventory">
+                    <span class="backpack-label">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 0.5em;">
+                            <path d="M5 18v-5h14v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z"></path>
+                            <path d="M8 13V8a4 4 0 1 1 8 0v5"></path>
+                            <path d="M10 4V2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"></path>
+                        </svg>
+                        Backpack
+                    </span>
+                    <div id="hud-inventory-items" class="hud-inventory-items"></div>
+                </div>
+            </aside>
+
+            <section id="scene-content" class="scene-content" aria-live="polite" tabindex="-1">
+                <div id="scene-text" class="scene-text">
+                    <p>Loading...</p>
+                </div>
+                <nav id="choices" class="choices" aria-label="Choices"></nav>
+            </section>
+
+            <aside id="toast-sidebar" class="sidebar">
+                <div id="toast-container" class="toast-container"></div>
+            </aside>
+        </div>
+    </main>
+    
+    <div id="hud" class="hud game-hidden">
+        <div id="hud-stats" class="hud-group hud-stats"></div>
+        <div class="hud-group hud-menu">
+            <button id="menu-btn" class="menu-btn" aria-haspopup="dialog" aria-controls="menu-modal">Menu</button>
+        </div>
+    </div>
+    
+    <!-- ARIA Live region for announcements -->
+    <div id="announcer" class="visually-hidden" aria-live="assertive" aria-atomic="true"></div>
+    
+    <!-- Modals -->
+    <dialog id="menu-modal" class="modal">
+        <h2>Menu</h2>
+        <div class="modal-actions" style="flex-direction: column;">
+            <button id="continue-btn">Continue Game</button>
+            <button id="restart-btn">Restart Game</button>
+            <button id="settings-btn" aria-haspopup="dialog" aria-controls="settings-modal">Settings</button>
+            <button id="help-btn" aria-haspopup="dialog" aria-controls="help-modal">Help</button>
+        </div>
+    </dialog>
+    
+    <dialog id="settings-modal" class="modal">
+        <h2>Settings</h2>
+        <div class="setting">
+            <label for="font-size-slider">Font Size</label>
+            <input type="range" id="font-size-slider" min="0.8" max="1.4" step="0.1" value="1">
+        </div>
+        <div class="setting">
+            <label for="high-contrast-toggle">High Contrast</label>
+            <label class="toggle">
+                <input type="checkbox" id="high-contrast-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="setting">
+            <label for="reduced-motion-toggle">Reduced Motion</label>
+            <label class="toggle">
+                <input type="checkbox" id="reduced-motion-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="modal-actions">
+            <button id="settings-close-btn">Close</button>
+        </div>
+    </dialog>
+    
+    <dialog id="help-modal" class="modal">
+        <h2>How to Play</h2>
+        <p>This is an interactive story. Read the text and choose an option to advance the narrative. Your choices will affect Millie's inventory and the story's outcome.</p>
+        <p>Your choices shape the kind of person Millie becomes. Your actions will be remembered.</p>
+        <p><strong>Saving:</strong> Your progress is saved automatically at the start of each new scene. You can continue from where you left off by refreshing the page.</p>
+        <p><strong>Accessibility:</strong> Adjust font size, high contrast mode, and animations in the Settings menu. The game is fully navigable using a keyboard.</p>
+        <div class="modal-actions">
+            <button id="help-close-btn">Got it!</button>
+        </div>
+    </dialog>
+
+    <!-- JAVASCRIPT -->
+    <script>
+    ((window, document) => {
+        'use strict';
+
+        /* DATA: SCENES */
+        const SCENES = {
+            'intro-1': {
+                text: [
+                    "The argument feels like a physical thing, a heavy blanket smothering the air in the living room. Mum's voice is tight, Dad's is tired. It's about the party. It's always about something.",
+                    "You feel a familiar knot tighten in your stomach. The urge to just... escape... is overwhelming."
+                ],
+                choices: [
+                    { text: "Storm out to the garden.", nextScene: 'garden-portal', effects: { bravery: 1 } },
+                    { text: "Go to your room to think.", nextScene: 'intro-2' }
+                ]
+            },
+            'intro-2': {
+                text: [
+                    "In your room, the silence is almost as loud as the shouting was. You sit on your bed, tracing the patterns on your duvet.",
+                    "The party seems unimportant now. But staying here feels impossible too. What do you do?"
+                ],
+                choices: [
+                    { text: "Sneak out to the garden.", nextScene: 'intro-3-pack', effects: { resourcefulness: 1 } },
+                    { text: "Wait for things to cool down.", nextScene: 'intro-1' }
+                ]
+            },
+            'intro-3-pack': {
+                text: [
+                    "You decide to slip out. As you stand by the door, your eyes land on your gear for night-time adventures: your trusty torch on the nightstand and the full water bottle you always keep handy.",
+                    "It might be smart to take them."
+                ],
+                choices: [
+                    { text: "Grab the torch and water bottle.", nextScene: 'garden-portal', onChoose: (state) => { if (!state.inventory.includes('torch')) state.inventory.push('torch'); if (!state.inventory.includes('water bottle')) state.inventory.push('water bottle'); return "Torch and Water Bottle acquired."} },
+                    { text: "Just go. No time to waste.", nextScene: 'garden-portal' }
+                ]
+            },
+            'garden-portal': {
+                text: [
+                    "The evening air in the garden is cool and damp, a welcome relief. You slump down under the old oak tree at the bottom of the garden, the familiar scratch of its bark a small comfort.",
+                    "But something is wrong. A strange, low hum vibrates through the ground. The big azalea bush nearby is... shimmering. A swirling vortex of pink, purple, and blue light churns where the bush should be."
+                ],
+                choices: [
+                    { text: "Touch the swirling light.", nextScene: 'jungle-arrival', effects: { bravery: 1 } },
+                    { text: "Throw a pebble into it.", nextScene: 'garden-portal-pebble', effects: { resourcefulness: 1 } },
+                    { text: "Back away slowly.", nextScene: 'intro-2' }
+                ]
+            },
+            'garden-portal-pebble': {
+                text: [
+                    "You pick up a small, smooth pebble. With a flick of your wrist, you toss it towards the light.",
+                    "It doesn't make a sound. It just vanishes into the swirling colours. The hum intensifies for a moment, and you feel a strange pull, like the tide trying to drag you out to sea."
+                ],
+                choices: [
+                    { text: "Step closer.", nextScene: 'jungle-arrival', effects: { bravery: 1 } },
+                    { text: "Run back inside.", nextScene: 'intro-1' }
+                ]
+            },
+            'jungle-arrival': {
+                text: [
+                    "An invisible force yanks you off your feet. The world dissolves into a nauseating kaleidoscope of colour and noise. Then, with a sudden lurch, you land hard on soft, damp earth.",
+                    "The air is thick, hot, and smells of unknown blossoms and decay. Towering trees form a dense canopy overhead, and the air is alive with the chirps and squawks of unseen creatures. This is not your garden."
+                ],
+                choices: [
+                    { text: "Check your watch.", nextScene: 'jungle-meet', setFlag: { checkedWatch: true } },
+                    { text: "Call out for help.", nextScene: 'jungle-meet-loud', effects: { bravery: -1 } },
+                    { text: "Scan the area for useful features.", nextScene: 'jungle-meet', effects: { resourcefulness: 1 } },
+                    { text: "Take a drink from your water bottle.", nextScene: 'jungle-meet', requires: { inventory: ['water bottle'] }, inventoryRemove: ['water bottle'], effects: { resourcefulness: 1 } }
+                ]
+            },
+            'jungle-meet': {
+                text: [
+                    "Before you can get your bearings, figures emerge from the dense foliage. Three other kids, looking just as lost and bewildered as you feel.",
+                    "\"Another one?\" a girl with sharp eyes and dark braids says, her tone more weary than surprised. A lanky, energetic boy grins. \"New recruit! I'm Zack.\" A smaller, quieter girl hangs back, observing you. \"I'm Poppy,\" the first girl says. \"And that's Ava.\""
+                ],
+                choices: [
+                    { text: "\"I'm Millie. Where are we?\"", nextScene: 'the-base', effects: { teamwork: 1 } },
+                    { text: "Stay silent and observe them.", nextScene: 'the-base', effects: { resourcefulness: 1 } }
+                ]
+            },
+            'jungle-meet-loud': {
+                text: [
+                    "\"Hello? Is anyone there?\" you shout, your voice sounding small in the vast jungle.",
+                    "A loud crashing sound comes from the undergrowth. Not towards you, but away. Then, three other kids burst out of the foliage, looking annoyed. \"Great,\" says a girl with dark braids. \"You just scared off our dinner. I'm Poppy. That's Zack, and that's Ava. Try to be quieter.\""
+                ],
+                choices: [
+                    { text: "Apologise profusely.", nextScene: 'the-base', effects: { teamwork: 1 } },
+                    { text: "\"Sorry, I didn't know.\"", nextScene: 'the-base' }
+                ]
+            },
+            'the-base': {
+                text: [
+                    "They lead you to their 'base' – a huge, fallen log hollowed out by time. It feels safer than the open jungle, at least. Zack explains they all arrived the same way: through a portal.",
+                    "Poppy sizes you up. \"We survive by working together. Everyone pulls their weight. What can you do?\""
+                ],
+                choices: [
+                    { text: "Share your water.", nextScene: 'pulley-plan', effects: { teamwork: 2, resourcefulness: 1 }, requires: { inventory: ['water bottle'] }, inventoryRemove: ['water bottle'] },
+                    { text: "\"I'm a good observer.\"", nextScene: 'pulley-plan', effects: { bravery: 1, resourcefulness: 1 } },
+                    { text: "\"I... I'm not sure.\"", nextScene: 'pulley-plan' }
+                ]
+            },
+            'pulley-plan': {
+                text: [
+                    "Zack points to a stash of strange, large fruit high up in a tree. \"We need to get that, but it's too high to climb. I reckon we could build some kind of pulley system!\"",
+                    "Poppy scoffs. \"With what, Zack? Your 'insane ideas'?\" Ava, however, is studying the thick vines hanging nearby and a collection of heavy-looking rocks."
+                ],
+                choices: [
+                    { text: "Let's try it. We need the vines first.", nextScene: 'pulley-build', effects: { resourcefulness: 1, teamwork: 1, bravery: 1 } },
+                    { text: "Ask Ava for her thoughts.", nextScene: 'pulley-ava', effects: { teamwork: 1 } },
+                    { text: "Suggest finding a safer food source.", nextScene: 'search-for-food-fail', effects: { resourcefulness: 1 } }
+                ]
+            },
+            'pulley-ava': {
+                text: [
+                    "You turn to the quietest member of the group. \"Ava, what do you think?\" She looks up, surprised to be asked.",
+                    "\"The angle is the most important part,\" she says softly. \"If we anchor a vine on that high branch, use a strong rock as a counterweight, we could braid a second vine to make a net. It might work.\""
+                ],
+                choices: [
+                    { text: "Follow Ava's plan.", nextScene: 'pulley-build', effects: { teamwork: 2, resourcefulness: 1 } },
+                    { text: "It still sounds complicated.", nextScene: 'search-for-food-fail' }
+                ]
+            },
+            'pulley-build': {
+                text: [
+                    "Working together, you manage to get a thick vine over a sturdy branch. Poppy, surprisingly strong, braids other vines into a makeshift rope and net. Zack scrambles around, finding the perfect heavy rock.",
+                    "The final part is hoisting the rock. As you all pull, the vine scrapes against the tree bark. Suddenly, it snaps! The rock crashes down, narrowly missing your foot. You stumble back, and your watch snags on a branch, the strap breaking. It falls into the deep undergrowth."
+                ],
+                choices: [
+                    { text: "Forget the watch, get the fruit!", nextScene: 'trap-execution', setFlag: { lostWatch: true, teamCohesion: true }, effects: { teamwork: 1 }, onChoose: (state) => { state.inventory.push('vines/rope'); return "Vines/Rope acquired."; } },
+                    { text: "Try to find your watch.", nextScene: 'trap-execution', setFlag: { lostWatch: true, teamCohesion: false }, effects: { teamwork: -1 }, onChoose: (state) => { state.inventory.push('vines/rope'); return "Vines/Rope acquired."; } }
+                ]
+            },
+            'search-for-food-fail': {
+                text: [
+                    "You convince the group to look for something easier to reach. You spend an hour scouring the nearby jungle, but everything is either unfamiliar and possibly poisonous, or crawling with insects.",
+                    "Defeated, you return to the hollow log as dusk begins to fall. The failed search has left everyone tired and discouraged."
+                ],
+                choices: [
+                    { text: "Settle in for a hungry night.", nextScene: 'night-in-trees' }
+                ]
+            },
+            'night-in-trees': {
+                text: [
+                    "Deciding against the risky plan, the group hunkers down for the night. Hunger gnaws at your stomach, and every rustle in the dark jungle sounds like a threat.",
+                    "The next morning, morale is low. Without a good source of food, you have no choice but to push on, hoping to find a way out."
+                ],
+                choices: [
+                    { text: "Press on into the jungle.", nextScene: 'jungle-travel-hungry', effects: { teamwork: -1 } }
+                ]
+            },
+            'jungle-travel-hungry': {
+                text: [
+                    "You travel for what feels like hours, the jungle thick and oppressive. Your stomach rumbles, a constant reminder of the failure to get food.",
+                    "Suddenly, your thoughts are interrupted by a deafening roar echoing through the trees."
+                ],
+                choices: [
+                    { text: "Investigate the sound.", nextScene: 'raptor-approach' }
+                ]
+            },
+            'trap-execution': {
+                text: [
+                    "Despite the setback, the pulley (mostly) works! You manage to snag a few of the strange fruits. As you're celebrating your small victory, your triumph is cut short by a deafening roar echoing through the trees.",
+                    "Your blood runs cold."
+                ],
+                choices: [
+                    { text: "Face the danger.", nextScene: 'raptor-approach' }
+                ]
+            },
+            'raptor-approach': {
+                text: [
+                    "A creature that looks suspiciously like a velociraptor bursts through the clearing, its hungry eyes fixed on your group.",
+                    "\"RUN!\" Zack yells, already sprinting."
+                ],
+                choices: [
+                    { text: "Run with the group.", nextScene: 'chase-stumble' },
+                    { text: "Use your torch to distract it.", nextScene: 'chase-stumble', requires: { inventory: ['torch'] }, inventoryRemove: ['torch'], effects: { bravery: 1, teamwork: 1 }, setFlag: { distractedRaptor: true }, onChoose: () => "The bright light stuns the raptor, buying you time!" }
+                ]
+            },
+            'chase-stumble': {
+                text: [
+                    "Adrenaline floods your system. You sprint after the others, the raptor's claws tearing up the dirt right behind you. The jungle is a blur. Up ahead, you see it – a familiar, impossible swirl of pink and purple light.",
+                    "But then, a cry from behind. Poppy has tripped on a root, sprawling to the ground. She's not getting up. The raptor is closing in on her."
+                ],
+                choices: [
+                    { text: "Rush back to help Poppy yourself.", nextScene: 'save-poppy-alone', effects: { bravery: 2, teamwork: -1 } },
+                    { text: "Yell for Ava and Zack to help you.", nextScene: 'save-poppy-team', effects: { teamwork: 2, resourcefulness: 1 } },
+                    { text: "Keep running for the portal. It's too late.", nextScene: 'abandon-poppy', effects: { bravery: -2, teamwork: -2 } }
+                ]
+            },
+            'save-poppy-alone': {
+                text: [
+                    "Without a second thought, you pivot and run straight back towards the danger. You grab Poppy's arm, hauling her to her feet. \"Come on!\" you scream, pulling her along.",
+                    "The raptor lunges, and you barely manage to shove Poppy out of the way, its claws grazing your arm. Together, you scramble the last few feet and dive headfirst into the portal's light."
+                ],
+                choices: [
+                    { text: "Leap through.", nextScene: 'empty-city' }
+                ]
+            },
+            'save-poppy-team': {
+                text: [
+                    "\"ZACK, AVA, HELP!\" you scream, turning back but not rushing in alone. Zack, seeing the situation, grabs a heavy branch while Ava helps you pull Poppy to her feet.",
+                    "Zack hurls the branch at the raptor, a perfect distraction that makes it hesitate for a crucial second. The four of you link arms and plunge into the shimmering portal together."
+                ],
+                choices: [
+                    { text: "Leap through.", nextScene: 'empty-city', effects: { teamwork: 1 }, setFlag: { teamCohesion: true } }
+                ]
+            },
+            'empty-city': {
+                text: [
+                    "You land on cold, hard pavement. The air is sterile and still. You're in a city, but a silent one. Gleaming skyscrapers pierce a grey, featureless sky. There are no cars, no people, no birds. Only a faint, electric hum.",
+                    "\"Okay, this is new,\" Zack says, looking up in awe. A small, red light zips past overhead. A drone. Then another. They seem to be patrolling."
+                ],
+                choices: [
+                    { text: "Find cover in that big building.", nextScene: 'marble-hall', effects: { resourcefulness: 1 } },
+                    { text: "Let's split up to explore.", nextScene: 'drone-chase', effects: { bravery: 1, teamwork: -1 } }
+                ]
+            },
+            'drone-chase': {
+                text: [
+                    "The moment you separate, the drones seem to notice. Their red lights focus, and they descend with an aggressive buzz. You're forced to sprint down an alleyway, the drones close behind, firing harmless but terrifying beams of light near your feet."
+                ],
+                choices: [
+                    { text: "Regroup in the large building.", nextScene: 'marble-hall' }
+                ]
+            },
+            'marble-hall': {
+                text: [
+                    "You slip through the grand entrance of a skyscraper into a vast, silent marble hall. The drones don't follow. But you're not alone.",
+                    "A colossal robot, ten feet tall, activates at the far end of the hall. Its single, blue optic glows, and it fires a beam that freezes Zack in place, encased in a shimmering field.",
+                    "On a nearby console, a small, metallic gadget hums faintly. It looks powerful, but unstable."
+                ],
+                choices: [
+                    { text: "Use the vines as a rope to trip it.", nextScene: 'control-room-trip', requires: { inventory: ['vines/rope'] }, inventoryRemove: ['vines/rope'], effects: { resourcefulness: 2, teamwork: 1 } },
+                    { text: "Grab the gadget and use it yourself.", nextScene: 'control-room', effects: { bravery: 2 }, onChoose: () => "You feel a surge of power as you grab the gadget." },
+                    { text: "Tell Ava to use the gadget. She's better with tech.", nextScene: 'control-room', effects: { teamwork: 2 } },
+                    { text: "Try to distract the robot.", nextScene: 'control-room-fail', effects: { bravery: -1 } }
+                ]
+            },
+            'control-room-trip': {
+                text: [
+                    "\"The rope!\" Poppy shouts, seeing the vines in your hand. While Ava and Zack create a diversion on one side, you and Poppy quickly stretch the makeshift rope taut across the robot's path.",
+                    "The huge machine strides forward, catches its foot, and crashes to the marble floor with a deafening clang. It struggles, circuits sparking, giving you all the time you need to find a door marked 'Control Room' and get Zack to safety."
+                ],
+                choices: [
+                    { text: "Get to the control room!", nextScene: 'control-room' }
+                ]
+            },
+            'control-room': {
+                text: [
+                    "The gadget unleashes a pulse of energy, shattering the paralysis field. Zack gasps, free again. The robot stumbles back, its systems temporarily scrambled.",
+                    "You use the opportunity to flee, finding a door that leads to what looks like a control room. It's filled with screens, all showing the empty city. In the centre of the room is a console with a single, large, tempting red button. Beside it rests a thin, metallic card."
+                ],
+                choices: [
+                    { text: "Press the red button.", nextScene: 'button-pressed-consequences', setFlag: { pressedButton: true } },
+                    { text: "Examine the console more closely.", nextScene: 'examine-console', effects: { resourcefulness: 1 } },
+                    { text: "Ask Ava to examine the console.", nextScene: 'control-room-ava', requires: { stats: { teamwork: 2 } } , effects: { teamwork: 1 }}
+                ]
+            },
+            'button-pressed-consequences': {
+                text: [
+                    "You slam your hand down on the big red button. A deafening klaxon alarm blares through the room, and red lights begin to flash, bathing everything in an urgent, crimson glow.",
+                    "\"What did you do?!\" Poppy yells over the noise. On the main screen, a message flashes: 'INTRUDER ALERT. CONTAINMENT PROTOCOL INITIATED.' The disabled robot outside begins to stir."
+                ],
+                choices: [
+                    { text: "We need to find an exit, NOW!", nextScene: 'hidden-panel' }
+                ]
+            },
+            'examine-console': {
+                text: [
+                    "You lean over the console, ignoring the big red button for now. The metallic card has strange, intricate circuits etched into its surface. It feels important.",
+                    "While you're looking, Poppy runs a hand along the far wall."
+                ],
+                choices: [
+                    { text: "Take the key card.", nextScene: 'hidden-panel', onChoose: (state) => { if (!state.inventory.includes('key')) { state.inventory.push('key'); } return "Key acquired."; } },
+                    { text: "Leave it. Let's just look for an exit.", nextScene: 'hidden-panel' }
+                ]
+            },
+            'control-room-ava': {
+                 text: [
+                    "\"Ava, you're good with this stuff. See anything?\" you ask. She nods, running her fingers over the console. Strange symbols flicker on a small screen.",
+                    "\"It's a sequence,\" she whispers. \"Mindlessly pressing the button is probably a trap. But if I input this sequence first... it should work. Or, we could just leave it alone and look for an exit.\""
+                ],
+                choices: [
+                    { text: "Trust Ava. Let her input the sequence.", nextScene: 'button-pressed-success', onChoose: (state) => {
+                        if (!state.inventory.includes('key')) {
+                            state.inventory.push('key');
+                        }
+                        return "She also grabs a thin metallic card from the console. 'Might need this.' Key acquired.";
+                    }, effects: { teamwork: 2, resourcefulness: 1 } },
+                    { text: "No time. Just press the button.", nextScene: 'button-pressed-consequences', setFlag: { pressedButton: true }, effects: { teamwork: -1, bravery: 1 } },
+                    { text: "Leave the console. Search for an exit.", nextScene: 'hidden-panel' }
+                ]
+            },
+            'button-pressed-success': {
+                text: [
+                    "You nod to Ava. \"Do it.\" She carefully taps a series of symbols on the console surrounding the button. The button's red light softens to a steady green.",
+                    "She takes a breath and presses it. A soft, satisfying chime echoes through the room. On the main screen, you watch as the giant robot outside slumps over, its lights extinguishing. The patrol drones freeze in mid-air and drop from the sky like stones."
+                ],
+    		    choices: [
+                    { text: "Perfect. Now let's find an exit.", nextScene: 'hidden-panel' }
+                ]
+            },
+            'hidden-panel': {
+                text: [
+                    "Poppy, running a hand along the wall, finds a seam you hadn't noticed. \"There's a keyhole here,\" she says, pointing to a tiny, almost invisible slot.",
+                    "You remember the strange, flat 'key' from the console. It might fit."
+                ],
+                choices: [
+                    { text: "Use the key.", nextScene: 'final-portal', inventoryRemove: ['key'], showIf: { inventory: ['key'] } },
+                    { text: "We need a key for this slot. Let's search the room again.", nextScene: 'examine-console', hideIf: { inventory: ['key'] } }
+                ]
+            },
+            'final-portal': {
+                text: [
+                    "The key fits. A section of the wall slides open, revealing not a dark corridor, but another swirling portal. This one feels different. Warmer. It smells like cut grass and home.",
+                    "Without hesitation, you all look at each other, nod, and jump in together."
+                ],
+                choices: [
+                    { text: "Go home.", nextScene: 'garden-return' }
+                ]
+            },
+            'garden-return': {
+                text: [
+                    "You land softly on the grass under the old oak tree. The portal vanishes with a soft 'pop'. The garden is exactly as you left it, bathed in the gentle light of dusk.",
+                    "You check your watch... oh, right. You glance at your phone instead. Only fifteen minutes have passed. It felt like days. Your parents call your name from the house, their voices softer now. The journey is over."
+                ],
+                choices: [
+                    { text: "Go inside.", isEndingChoice: true, nextScene: 'ending-cautious' } // nextScene is a fallback
+                ]
+            },
+            'ending-brave': {
+                isEnding: true,
+                text: [
+                    "You walk back inside, the strange weight from before gone. You faced impossible dangers and didn't back down. You found something more important than a party tonight: courage, friends, and the way home.",
+                    "You grew into a brave leader. (Brave Leader Ending)"
+                ],
+                choices: [{ text: "Play Again?", nextScene: 'intro-1', action: 'restart' }]
+            },
+            'ending-cautious': {
+                isEnding: true,
+                text: [
+                    "You head back inside, a whirlwind of memories swirling in your mind. The journey changed you in many ways, teaching you about yourself and what you're capable of.",
+                    "You survived and found your way home. (Survivor Ending)"
+                ],
+                choices: [{ text: "Play Again?", nextScene: 'intro-1', action: 'restart' }]
+            },
+            'ending-teamwork': {
+                isEnding: true,
+                text: [
+                    "You walk back inside, a newfound confidence in your steps. You weren't alone in those other worlds, and you aren't alone here. You brought a team together and led them home.",
+                    "You learned the power of teamwork. (Teamwork Ending)"
+                ],
+                choices: [{ text: "Play Again?", nextScene: 'intro-1', action: 'restart' }]
+            },
+            'ending-resourceful': {
+                isEnding: true,
+                text: [
+                    "You head inside, your mind buzzing with solutions. You faced impossible challenges and found clever ways to overcome them, using what you had to survive.",
+                    "You proved to be incredibly resourceful. (Resourceful Ending)"
+                ],
+                choices: [{ text: "Play Again?", nextScene: 'intro-1', action: 'restart' }]
+            },
+             'control-room-fail': {
+                isEnding: true,
+                text: [
+                    "You wave your arms to draw the robot's attention. It works too well. The blue paralysis beam hits you square in the chest. Your friends try to help, but are quickly captured one by one.",
+                    "Your team was broken by a poor decision. (Broken Team Ending)"
+                ],
+                choices: [{ text: "Play Again?", nextScene: 'intro-1', action: 'restart' }]
+            },
+            'abandon-poppy': {
+                isEnding: true,
+                text: [
+                    "You dive through the portal, landing hard on pavement. You get to your feet, turning to see Zack and Ava stumble through after you, their faces etched with horror. Poppy is not with them.",
+                    "You survived. But you left a friend behind to do it. The silence of the empty city feels like a judgment. (Coward's Ending)"
+                ],
+                choices: [{ text: "Play Again?", nextScene: 'intro-1', action: 'restart' }]
+            },
+            'ending-brave-resourceful': {
+                isEnding: true,
+                text: [
+                    "You head inside, your mind buzzing. You didn't just survive, you conquered. With quick thinking and a steady nerve, you turned every obstacle into an opportunity. You are a natural explorer.",
+                    "You are a brave and resourceful explorer. (Explorer Ending)"
+                ],
+                choices: [{ text: "Play Again?", nextScene: 'intro-1', action: 'restart' }]
+            },
+            'ending-brave-teamwork': {
+                isEnding: true,
+                text: [
+                    "You walk back inside, a newfound confidence radiating from you. You faced down your fears, but more importantly, you inspired others to do the same. You brought a team together and led them home through sheer force of will.",
+                    "You are a charismatic leader. (Leader Ending)"
+                ],
+                choices: [{ text: "Play Again?", nextScene: 'intro-1', action: 'restart' }]
+            },
+            'ending-teamwork-resourceful': {
+                isEnding: true,
+                text: [
+                    "You return home, not with a sense of relief, but with a sense of accomplishment. Every challenge was a puzzle, and you orchestrated the solution with your friends. Your clever plans kept everyone safe.",
+                    "You are a clever strategist. (Strategist Ending)"
+                ],
+                choices: [{ text: "Play Again?", nextScene: 'intro-1', action: 'restart' }]
+            },
+        };
+
+        /* STATE */
+        const SAVE_KEY = 'timeAndTimeAgainSave';
+
+        const getInitialState = () => ({
+            currentSceneId: 'intro-1',
+            stats: { bravery: 0, teamwork: 0, resourcefulness: 0 },
+            inventory: [],
+            flags: {}
+        });
+
+        let gameState = getInitialState();
+
+        const saveGame = () => {
+            try {
+                localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+            } catch (e) {
+                console.error("Could not save game state:", e);
+            }
+        };
+
+        const loadGame = () => {
+            try {
+                const savedState = localStorage.getItem(SAVE_KEY);
+                if (savedState) {
+                    const parsedState = JSON.parse(savedState);
+                    const cleanState = getInitialState();
+                    Object.assign(gameState, cleanState, parsedState);
+                    showToast("Game loaded.");
+                }
+            } catch (e) {
+                console.error("Could not load game state:", e);
+                localStorage.removeItem(SAVE_KEY);
+            }
+        };
+
+        const resetAndStart = () => {
+            localStorage.removeItem(SAVE_KEY);
+            announcerEl.textContent = 'Restarting game.';
+            setTimeout(() => location.reload(), 200);
+        };
+
+        /* DOM ELEMENT VARIABLES (DECLARED) */
+        let sceneContentEl, sceneTextEl, choicesEl, hudStatsEl, hudInventoryEl,
+            hudInventoryItemsEl, announcerEl, toastContainerEl, menuBtn,
+            menuModal, continueBtn, restartBtn, settingsBtn, helpBtn, settingsModal,
+            settingsCloseBtn, helpModal, helpCloseBtn, fontSizeSlider,
+            highContrastToggle, reducedMotionToggle;
+
+        /* RENDER */
+        const updateHUD = () => {
+            // Stats
+            hudStatsEl.innerHTML = '';
+
+            // Inventory
+            if (gameState.inventory.length > 0) {
+                 hudInventoryItemsEl.innerHTML = gameState.inventory.map(item => `
+                    <div class="inventory-item">${item.charAt(0).toUpperCase() + item.slice(1).replace(/_/g, ' ')}</div>
+                `).join('');
+            } else {
+                hudInventoryItemsEl.innerHTML = `<div class="inventory-item" style="opacity: 0.6;">Empty</div>`;
+            }
+        };
+        
+        const showToast = (message) => {
+            if (!message) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            toastContainerEl.appendChild(toast);
+            
+            toast.addEventListener('animationend', (e) => {
+                 if (e.animationName === 'fadeOut' && toast.parentElement) {
+                    toast.parentElement.removeChild(toast);
+                }
+            });
+        };
+
+        const render = (sceneId) => {
+            const scene = SCENES[sceneId];
+            if (!scene) {
+                console.error(`Scene not found: ${sceneId}`);
+                return;
+            }
+            
+            gameState.currentSceneId = sceneId;
+            
+            // Fade out old content
+            sceneContentEl.style.opacity = '0';
+            
+            setTimeout(() => {
+                // Update text
+                let sceneHtml = scene.text.map(p => `<p>${p}</p>`).join('');
+
+                // Dynamic text additions
+                if (sceneId === 'jungle-arrival' && !gameState.inventory.includes('water bottle')) {
+                    sceneHtml += `<p><em>Your mouth is already dry. That bottle on your nightstand feels a world away.</em></p>`;
+                }
+                
+                sceneTextEl.innerHTML = sceneHtml;
+
+                // Update choices
+                choicesEl.innerHTML = '';
+
+                const availableChoices = scene.choices.filter(choice => {
+                    let shouldShow = true;
+                    if (choice.showIf) {
+                        if (choice.showIf.inventory) {
+                            if (!choice.showIf.inventory.every(item => gameState.inventory.includes(item))) {
+                                shouldShow = false;
+                            }
+                        }
+                    }
+                    if (shouldShow && choice.hideIf) {
+                        if (choice.hideIf.inventory) {
+                            if (choice.hideIf.inventory.every(item => gameState.inventory.includes(item))) {
+                                shouldShow = false;
+                            }
+                        }
+                    }
+                    return shouldShow;
+                });
+
+                availableChoices.forEach(choice => {
+                    const button = document.createElement('button');
+                    
+                    button.textContent = choice.text;
+                    button.className = 'choice-btn';
+                    
+                    // Check requirements
+                    let disabled = false;
+                    if (choice.requires) {
+                        if (choice.requires.stats) {
+                            for (const stat in choice.requires.stats) {
+                                if (gameState.stats[stat] < choice.requires.stats[stat]) {
+                                    disabled = true;
+                                    button.title = `Requires ${stat.charAt(0).toUpperCase() + stat.slice(1)} ${choice.requires.stats[stat]}`;
+                                }
+                            }
+                        }
+                        if (choice.requires.inventory) {
+                            for (const item of choice.requires.inventory) {
+                                if (!gameState.inventory.includes(item)) {
+                                    disabled = true;
+                                    button.title = `Requires ${item}`;
+                                }
+                            }
+                        }
+                    }
+                    button.disabled = disabled;
+                    
+                    button.addEventListener('click', () => handleChoiceClick(choice));
+                    choicesEl.appendChild(button);
+                });
+                
+                updateHUD();
+                saveGame();
+                
+                // Fade in new content
+                sceneContentEl.style.opacity = '1';
+                sceneContentEl.focus();
+
+            }, 400); // match fade transition
+        };
+
+        /* GAME LOGIC & EVENT HANDLERS */
+        const getEndingSceneId = (stats) => {
+            const threshold = 4; // Raised threshold
+            const scores = [
+                { stat: 'bravery', value: stats.bravery, scene: 'ending-brave' },
+                { stat: 'teamwork', value: stats.teamwork, scene: 'ending-teamwork' },
+                { stat: 'resourcefulness', value: stats.resourcefulness, scene: 'ending-resourceful' }
+            ];
+
+            // Sort by score descending
+            scores.sort((a, b) => b.value - a.value);
+
+            const highest = scores[0];
+            const secondHighest = scores[1];
+
+            if (highest.value < threshold) {
+                return 'ending-cautious'; // Default if no stat is high enough
+            }
+
+            // Check for ties at or above the threshold
+            if (highest.value === secondHighest.value) {
+                const tiedStats = [highest.stat, secondHighest.stat].sort().join('-');
+                switch (tiedStats) {
+                    case 'bravery-resourcefulness':
+                        return 'ending-brave-resourceful';
+                    case 'bravery-teamwork':
+                        return 'ending-brave-teamwork';
+                    case 'resourcefulness-teamwork':
+                        return 'ending-teamwork-resourceful';
+                    default:
+                        return 'ending-cautious'; // Fallback for unexpected ties
+                }
+            }
+
+            return highest.scene; // Return single highest stat ending
+        };
+
+        const handleChoiceClick = (choice) => {
+            // Handle special actions like restarting the game
+            if (choice.action === 'restart') {
+                resetAndStart();
+                return;
+            }
+
+            if (choice.effects) {
+                for (const stat in choice.effects) {
+                    const oldValue = gameState.stats[stat];
+                    const change = choice.effects[stat];
+                    gameState.stats[stat] = Math.max(0, oldValue + change);
+                    if (change > 0) {
+                       showToast(`Your ${stat} grows.`);
+                    } else if (change < 0) {
+                        showToast(`Your ${stat} wavers.`);
+                    }
+                }
+            }
+
+            if(choice.onChoose){
+                const message = choice.onChoose(gameState);
+                if(message) showToast(message);
+            }
+
+            if (choice.inventoryAdd) {
+                choice.inventoryAdd.forEach(item => {
+                    if (!gameState.inventory.includes(item)) {
+                        gameState.inventory.push(item);
+                        showToast(`${item.charAt(0).toUpperCase() + item.slice(1)} acquired.`);
+                    }
+                });
+            }
+
+            if (choice.inventoryRemove) {
+                choice.inventoryRemove.forEach(item => {
+                    const itemIndex = gameState.inventory.indexOf(item);
+                    if (itemIndex > -1) {
+                        gameState.inventory.splice(itemIndex, 1);
+                        showToast(`${item.charAt(0).toUpperCase() + item.slice(1)} used.`);
+                    }
+                });
+            }
+
+            if (choice.setFlag) {
+                Object.assign(gameState.flags, choice.setFlag);
+            }
+            
+            let nextSceneId = choice.nextScene;
+            if (choice.isEndingChoice) {
+                nextSceneId = getEndingSceneId(gameState.stats);
+            }
+
+            if (nextSceneId) {
+                render(nextSceneId);
+            }
+        };
+        
+        /* SETTINGS & MODALS */
+        const applySettings = () => {
+            // Font Size
+            const size = localStorage.getItem('fontSize') || '1';
+            document.documentElement.style.setProperty('--font-size-multiplier', size);
+            fontSizeSlider.value = size;
+
+            // High Contrast
+            const contrast = localStorage.getItem('highContrast') === 'true';
+            document.documentElement.classList.toggle('high-contrast', contrast);
+            highContrastToggle.checked = contrast;
+
+            // Reduced Motion
+            const motion = localStorage.getItem('reducedMotion') === 'true';
+            document.documentElement.classList.toggle('reduced-motion', motion);
+            reducedMotionToggle.checked = motion;
+            
+            // Check native preference
+            const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+            if (motionQuery.matches && localStorage.getItem('reducedMotion') === null) {
+                document.documentElement.classList.add('reduced-motion');
+                reducedMotionToggle.checked = true;
+            }
+        };
+
+        const setupEventListeners = () => {
+            // Start Screen
+            const beginBtnEl = document.getElementById('begin-btn');
+            beginBtnEl.addEventListener('click', () => {
+                const startScreenEl = document.getElementById('start-screen');
+                const gameContainerEl = document.getElementById('game-container');
+                const hudEl = document.getElementById('hud');
+                const appHeaderEl = document.querySelector('.app-header');
+                
+                startScreenEl.style.opacity = '0';
+                startScreenEl.addEventListener('transitionend', () => {
+                    startScreenEl.style.display = 'none';
+                }, { once: true });
+
+                gameContainerEl.classList.remove('game-hidden');
+                hudEl.classList.remove('game-hidden');
+                appHeaderEl.classList.remove('game-hidden');
+                
+                gameState = getInitialState();
+                render(gameState.currentSceneId);
+            });
+
+            // Menu
+            menuBtn.addEventListener('click', () => menuModal.showModal());
+            continueBtn.addEventListener('click', () => menuModal.close());
+            menuModal.addEventListener('click', (e) => {
+                if (e.target === menuModal) menuModal.close();
+            });
+
+            restartBtn.addEventListener('click', () => {
+                menuModal.close();
+                if (confirm("Are you sure you want to restart? Your progress will be lost.")) {
+                    resetAndStart();
+                }
+            });
+            
+            settingsBtn.addEventListener('click', () => {
+                menuModal.close();
+                settingsModal.showModal();
+            });
+            settingsCloseBtn.addEventListener('click', () => settingsModal.close());
+            settingsModal.addEventListener('click', (e) => {
+                if (e.target === settingsModal) settingsModal.close();
+            });
+
+            helpBtn.addEventListener('click', () => {
+                menuModal.close();
+                helpModal.showModal();
+            });
+            helpCloseBtn.addEventListener('click', () => helpModal.close());
+            helpModal.addEventListener('click', (e) => {
+                if (e.target === helpModal) helpModal.close();
+            });
+
+            // Settings handlers
+            fontSizeSlider.addEventListener('input', (e) => {
+                document.documentElement.style.setProperty('--font-size-multiplier', e.target.value);
+                localStorage.setItem('fontSize', e.target.value);
+            });
+            
+            highContrastToggle.addEventListener('change', (e) => {
+                document.documentElement.classList.toggle('high-contrast', e.target.checked);
+                localStorage.setItem('highContrast', e.target.checked);
+            });
+
+            reducedMotionToggle.addEventListener('change', (e) => {
+                document.documentElement.classList.toggle('reduced-motion', e.target.checked);
+                localStorage.setItem('reducedMotion', e.target.checked);
+            });
+        };
+
+        /* INITIALIZATION */
+        const init = () => {
+            // Assign DOM elements now that the DOM is loaded
+            sceneContentEl = document.getElementById('scene-content');
+            sceneTextEl = document.getElementById('scene-text');
+            choicesEl = document.getElementById('choices');
+            hudStatsEl = document.getElementById('hud-stats');
+            hudInventoryEl = document.getElementById('hud-inventory');
+            hudInventoryItemsEl = document.getElementById('hud-inventory-items');
+            announcerEl = document.getElementById('announcer');
+            toastContainerEl = document.getElementById('toast-container');
+            menuBtn = document.getElementById('menu-btn');
+            menuModal = document.getElementById('menu-modal');
+            continueBtn = document.getElementById('continue-btn');
+            restartBtn = document.getElementById('restart-btn');
+            settingsBtn = document.getElementById('settings-btn');
+            helpBtn = document.getElementById('help-btn');
+            settingsModal = document.getElementById('settings-modal');
+            settingsCloseBtn = document.getElementById('settings-close-btn');
+            helpModal = document.getElementById('help-modal');
+            helpCloseBtn = document.getElementById('help-close-btn');
+            fontSizeSlider = document.getElementById('font-size-slider');
+            highContrastToggle = document.getElementById('high-contrast-toggle');
+            reducedMotionToggle = document.getElementById('reduced-motion-toggle');
+
+            document.documentElement.classList.remove('no-js');
+            applySettings();
+            setupEventListeners();
+            
+            const savedState = localStorage.getItem(SAVE_KEY);
+            if (savedState) {
+                document.getElementById('start-screen').style.display = 'none';
+                
+                const gameContainerEl = document.getElementById('game-container');
+                const hudEl = document.getElementById('hud');
+                const appHeaderEl = document.querySelector('.app-header');
+                
+                gameContainerEl.classList.remove('game-hidden');
+                hudEl.classList.remove('game-hidden');
+                appHeaderEl.classList.remove('game-hidden');
+
+                loadGame();
+                render(gameState.currentSceneId);
+            }
+        };
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+
+    })(window, document);
+    </script>
+</body>
+</html>
